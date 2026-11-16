@@ -1,0 +1,939 @@
+{
+  "name": "Checkpoint 4 - Gmail HubSpot - Miguel Villarreal",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeDrafts": false,
+          "q": "in:inbox -in:sent -in:drafts",
+          "readStatus": "unread"
+        },
+        "options": {
+          "downloadAttachments": false
+        }
+      },
+      "name": "Gmail - Correo entrante",
+      "id": "6a0d9b14-20a0-4de4-87f5-c163d2506054",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -720,
+        160
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rxYcAqRzxVehA9zH",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ /auto[ -]?reply|out[ -]of[ -]office|undeliverable|delivery status notification|respuesta autom[aá]tica|fuera de (la )?oficina/i.test(String($json.subject || $json.Subject || '')) || /(?:no[._-]?reply|do[._-]?not[._-]?reply|mailer-daemon|postmaster)@/i.test(typeof $json.from === 'object' ? JSON.stringify($json.from) : String($json.from || $json.From || '')) || /auto-generated|auto-replied/i.test(String($json.headers?.['auto-submitted'] || '')) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "01 - Es correo automatico",
+      "id": "c1c1c390-cdb1-4615-ac9b-5eafa3786084",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -480,
+        160
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Ignorar automatico",
+      "id": "ed5c7658-bc38-4625-b438-f4036aaa55f1",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Un correo por vez",
+      "id": "525e8373-a09a-44ea-b423-3a9eb3b6a3a3",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -240,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0",
+              "name": "From",
+              "value": "={{ String($json.from?.value?.[0]?.address || (typeof $json.from === 'string' ? ($json.from.match(/<([^<>]+)>/)?.[1] || $json.from) : '') || $json.From || '').trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "1",
+              "name": "Subject",
+              "value": "={{ String($json.subject || $json.Subject || '(sin asunto)').replace(/[\\r\\n]/g,' ').slice(0,200) }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "BodyText",
+              "value": "={{ String($json.text || $json.textAsHtml?.replace(/<[^>]*>/g,' ') || $json.html?.replace(/<[^>]*>/g,' ') || '').slice(0,6000) }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "message_id",
+              "value": "={{ String($json.id || '') }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "received_at",
+              "value": "={{ String($json.date || $json.headers?.date || '') }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "mailbox",
+              "value": "miguelvillarreal.1b@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "ops_channel",
+              "value": "C0CBL2EUX27",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "04 - Limpiar entrada Gmail",
+      "id": "3667c25b-1265-4ff0-aed3-c246135fe192",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ /^[^\\s<>@,;]+@[^\\s<>@,;]+\\.[^\\s<>@,;]+$/.test($json.From) && !!$json.BodyText.trim() && !!$json.message_id && Number.isFinite(Date.parse($json.received_at)) && $json.mailbox !== 'CONFIGURAR_CUENTA_GMAIL' && /^C[A-Z0-9]+$/.test($json.ops_channel) && $json.From !== $json.mailbox.toLowerCase() }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Email y configuracion validos",
+      "id": "01bf7f0e-298b-432d-bf4f-387c50212a8c",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Correo o configuración incompletos. Revisar From, BodyText, fecha, cuenta Gmail y canal de Slack. No se creó contacto ni borrador."
+      },
+      "name": "Corregir entrada o configuracion",
+      "id": "b20407c8-0799-4e1e-85a9-ac060fd684d6",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        480,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "blskDurpN2yiIheL",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "From": "={{ $json.From }}",
+            "Subject": "={{ $json.Subject }}",
+            "BodyText": "={{ $json.BodyText }}",
+            "message_id": "={{ $json.message_id }}",
+            "received_at": "={{ $json.received_at }}",
+            "mailbox": "={{ $json.mailbox }}",
+            "ops_channel": "={{ $json.ops_channel }}",
+            "source": "gmail"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "From",
+              "displayName": "From",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subject",
+              "displayName": "Subject",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "BodyText",
+              "displayName": "BodyText",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mailbox",
+              "displayName": "mailbox",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ops_channel",
+              "displayName": "ops_channel",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "name": "Manager - Clasificar y redactar",
+      "id": "43e2ec05-9ece-4703-a5cc-d9708da30577",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.request_id && !!$json.reply && $json.tickets_saved === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Resultado nuevo con Tickets guardado",
+      "id": "e73b990a-3ffe-4fa5-b15c-ceb505e09fb3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !$json.request_id && !$json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Evento ya procesado",
+      "id": "d9daea05-1657-47b5-b343-99cb29689be9",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Manager no devolvió un resultado válido o Tickets no se guardó. Revisar su ejecución antes de crear un borrador."
+      },
+      "name": "Revisar Tickets o Manager",
+      "id": "9814e0e0-7242-4589-bf74-c73f2829e904",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0",
+              "name": "From",
+              "value": "={{ $('04 - Limpiar entrada Gmail').item.json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "1",
+              "name": "Subject",
+              "value": "={{ $('04 - Limpiar entrada Gmail').item.json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "BodyText",
+              "value": "={{ $json.reply.slice(0,2000) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "04 - Payload minimo CRM",
+      "id": "418a2edb-b259-4598-9d95-45acb7f90261",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "operation": "search",
+        "limit": 1,
+        "filterGroupsUi": {
+          "filterGroupsValues": [
+            {
+              "filtersUi": {
+                "filterValues": [
+                  {
+                    "propertyName": "email|string",
+                    "value": "={{ $json.From }}"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "properties": [
+            "email"
+          ]
+        }
+      },
+      "name": "02 - HubSpot buscar por email",
+      "id": "24ab3d50-8546-4d4d-85f4-79cf8bede615",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        208
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "EH3eLqa3I5jYcGlC",
+          "name": "HubSpot Service Key account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Contacto existente",
+      "id": "5aad5f2c-e4e0-40d6-ace5-e60919970464",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $('04 - Payload minimo CRM').item.json.From }}",
+        "additionalFields": {},
+        "options": {
+          "resolveData": true
+        }
+      },
+      "name": "HubSpot - Actualizar contacto",
+      "id": "41d8c5e3-c913-42c7-9b4e-5f60b54f38f8",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        96
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "EH3eLqa3I5jYcGlC",
+          "name": "HubSpot Service Key account"
+        }
+      },
+      "notes": "Operación nativa Create or Update por email. Se sincroniza únicamente email, sin sobrescribir nombres ni otros datos del CRM."
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $('04 - Payload minimo CRM').item.json.From }}",
+        "additionalFields": {},
+        "options": {
+          "resolveData": true
+        }
+      },
+      "name": "HubSpot - Crear contacto",
+      "id": "871a8fdf-dc8f-46b7-a173-52ca4d151588",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        336
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "EH3eLqa3I5jYcGlC",
+          "name": "HubSpot Service Key account"
+        }
+      },
+      "notes": "Operación nativa Create or Update por email. Se sincroniza únicamente email, sin sobrescribir nombres ni otros datos del CRM."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0",
+              "name": "to",
+              "value": "={{ $('04 - Payload minimo CRM').item.json.From }}",
+              "type": "string"
+            },
+            {
+              "id": "1",
+              "name": "subject",
+              "value": "={{ 'Re: ' + $('04 - Payload minimo CRM').item.json.Subject.replace(/^Re:\\s*/i,'') }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "body",
+              "value": "={{ $('04 - Payload minimo CRM').item.json.BodyText }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Preparar borrador",
+      "id": "6917c36e-dfb6-4607-9709-ee27e48ca5ec",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1872,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {
+          "sendTo": "={{ $json.to }}"
+        }
+      },
+      "name": "03 - Gmail crear borrador HITL",
+      "id": "f4439e4c-ac1f-44cd-a3e3-7a354b2ac04a",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2096,
+        208
+      ],
+      "retryOnFail": false,
+      "webhookId": "9080da4c-f807-434c-b5d3-4354465a0ec6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rxYcAqRzxVehA9zH",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0",
+              "name": "channel",
+              "value": "={{ $('04 - Limpiar entrada Gmail').item.json.ops_channel }}",
+              "type": "string"
+            },
+            {
+              "id": "1",
+              "name": "text",
+              "value": "={{ 'Borrador pendiente de revisión humana. No enviado.\\nTicket: ' + $('Manager - Clasificar y redactar').item.json.request_id + '\\nWorker: ' + $('Manager - Clasificar y redactar').item.json.worker + ' | Estado: ' + $('Manager - Clasificar y redactar').item.json.status + '\\nPrioridad: ' + $('Manager - Clasificar y redactar').item.json.priority + '\\nHubSpot: contacto sincronizado | Tickets: guardado\\nBorrador Gmail: ' + String($json.id || '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "04 - Payload minimo Slack",
+      "id": "e2e7ba15-b10f-4a2e-bd6b-eb00468d5d82",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $json.channel }}",
+          "mode": "id"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "name": "Slack - Avisar al equipo",
+      "id": "7fda7e0f-025d-4f1b-93b2-e3637fa1b6ce",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        208
+      ],
+      "webhookId": "00a9abe6-66a9-452b-abec-8b14e83636e1",
+      "credentials": {
+        "slackApi": {
+          "id": "KAh0BcKGBE07OLuj",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('04 - Limpiar entrada Gmail').item.json.message_id }}"
+      },
+      "name": "Gmail - Marcar procesado",
+      "id": "e753ac72-ea33-4d0e-b4c7-c1d0a3df952c",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2784,
+        208
+      ],
+      "webhookId": "bf0d593c-242f-4c46-a1a5-0437ca318f58",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "rxYcAqRzxVehA9zH",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail - Correo entrante": {
+      "main": [
+        [
+          {
+            "node": "01 - Es correo automatico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01 - Es correo automatico": {
+      "main": [
+        [
+          {
+            "node": "Ignorar automatico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Un correo por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un correo por vez": {
+      "main": [
+        [],
+        [
+          {
+            "node": "04 - Limpiar entrada Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Limpiar entrada Gmail": {
+      "main": [
+        [
+          {
+            "node": "Email y configuracion validos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email y configuracion validos": {
+      "main": [
+        [
+          {
+            "node": "Manager - Clasificar y redactar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Corregir entrada o configuracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manager - Clasificar y redactar": {
+      "main": [
+        [
+          {
+            "node": "Resultado nuevo con Tickets guardado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resultado nuevo con Tickets guardado": {
+      "main": [
+        [
+          {
+            "node": "04 - Payload minimo CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Evento ya procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evento ya procesado": {
+      "main": [
+        [
+          {
+            "node": "Un correo por vez",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revisar Tickets o Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Payload minimo CRM": {
+      "main": [
+        [
+          {
+            "node": "02 - HubSpot buscar por email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - HubSpot buscar por email": {
+      "main": [
+        [
+          {
+            "node": "Contacto existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacto existente": {
+      "main": [
+        [
+          {
+            "node": "HubSpot - Actualizar contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HubSpot - Crear contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot - Actualizar contacto": {
+      "main": [
+        [
+          {
+            "node": "Preparar borrador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot - Crear contacto": {
+      "main": [
+        [
+          {
+            "node": "Preparar borrador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar borrador": {
+      "main": [
+        [
+          {
+            "node": "03 - Gmail crear borrador HITL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Gmail crear borrador HITL": {
+      "main": [
+        [
+          {
+            "node": "04 - Payload minimo Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Payload minimo Slack": {
+      "main": [
+        [
+          {
+            "node": "Slack - Avisar al equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Avisar al equipo": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Marcar procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Marcar procesado": {
+      "main": [
+        [
+          {
+            "node": "Un correo por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1509fb88-e9cb-4a08-8309-d61ffa3b05a9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a2358bc29d2fa40b78944b27e25503f690551c21269a8a4485778b8f527d15eb"
+  },
+  "nodeGroups": [],
+  "id": "74fdQAV5SYkiP8xW",
+  "tags": []
+}
